@@ -36,6 +36,9 @@ except ImportError:
     #print('Default theme')
     pass
     
+
+
+
 class View(QWidget):
     
     def __init__(self, *args, **kwargs):
@@ -65,14 +68,12 @@ class View(QWidget):
         self.layout.addWidget(self.message_label,0,7)
         self.layout.setColumnMinimumWidth(7,350)
         
-        
         instrument_cbox_label = QLabel('Instrument: ')
         self.instrument_cbox = QComboBox(self)
         instruments = ['SNAP','CORELLI','TOPAZ','MANDI','WAND²','DEMAND']
         self.instrument_cbox.addItems(instruments)
         self.layout.addWidget(instrument_cbox_label,1,0)
         self.layout.addWidget(self.instrument_cbox,1,1,1,8)
-        
         
         ipts_label = QLabel('IPTS: ')
         self.ipts_field = QLineEdit()
@@ -81,10 +82,8 @@ class View(QWidget):
         self.layout.addWidget(ipts_label,2,0)
         self.layout.addWidget(self.ipts_field,2,1,1,8)
         
-        
         self.name_list = QListWidget()
         self.layout.addWidget(self.name_list,3,0,3,4)
-        
         
         runs_label = QLabel('Run Numbers: ')
         self.runs_list = QLineEdit()
@@ -92,11 +91,9 @@ class View(QWidget):
         self.layout.addWidget(runs_label,7,0)
         self.layout.addWidget(self.runs_list,7,1,1,8)
         
-        
         self.plot = FigureCanvas(Figure(figsize=(8,6)))#,tight_layout=True))
         self.layout.addWidget(self.plot,3,4,2,5)
         self.layout.addWidget(NavigationToolbar(self.plot,self),5,4,1,5)
-        
         
         
     def ipts_entered(self):
@@ -135,7 +132,6 @@ class View(QWidget):
         
         
         
-        
 class Presenter:
     def __init__(self,view,model):
         self.view = view
@@ -152,7 +148,6 @@ class Presenter:
         self.data_files = None
 
         
-        
     def switch_instrument(self):
         instrument = self.view.get_instrument()
         self.clear()
@@ -163,6 +158,7 @@ class Presenter:
         #print(inst_params['Goniometer'])
         
         self.inst_params = inst_params
+
 
     def set_ipts(self):
         ipts = self.view.get_ipts()
@@ -179,7 +175,6 @@ class Presenter:
             self.view.message_label.setStyleSheet("color: orange;")
 
 
-
     def select_name(self):
         name = self.view.get_name()
         self.runs = self.names[name]
@@ -191,6 +186,7 @@ class Presenter:
         scale_values = self.model.scale_values(self.data_files,data_indices,self.inst_params)
 
         self.plot(gonio_values,gonio_names,run_numbers_list,scale_values)
+        
         
     def adjust_runs_list(self):
         rs = self.view.get_runs()
@@ -204,11 +200,16 @@ class Presenter:
             return
         
         run_numbers_list, data_indices = self.model.run_numbers_indices_1(self.data_files,runs_list,self.inst_params)
-        gonio_values, gonio_names = self.model.goniometer_values(self.data_files,data_indices,self.inst_params)
-        scale_values = self.model.scale_values(self.data_files,data_indices,self.inst_params)
         
-        self.plot(gonio_values,gonio_names,run_numbers_list,scale_values)
-        
+        if len(run_numbers_list) == 0:
+            pass
+            #self.view.plot.figure.clf()
+            #self.view.plot.figure.canvas.draw()
+        else:
+            gonio_values, gonio_names = self.model.goniometer_values(self.data_files,data_indices,self.inst_params)
+            scale_values = self.model.scale_values(self.data_files,data_indices,self.inst_params)
+            
+            self.plot(gonio_values,gonio_names,run_numbers_list,scale_values)        
         
         
     def clear(self):
@@ -313,9 +314,8 @@ class Presenter:
                     #ax2.spines.right.set_color(color)
                     ax2.set_ylabel(f'Scale ({self.inst_params["Scale"].split(".")[-1]})',color=color)
                 
-                
-
         self.view.plot.figure.canvas.draw()
+        
         
     def sign_in(self):
         user = self.view.user_line.text()
@@ -341,10 +341,8 @@ class Presenter:
         self.view.message_label.setStyleSheet("color: green;")
         #self.view.user_line.setText('')
         #self.view.pass_line.setText('')
+      
         
-        
-    
-    
     
     
 class Model:
@@ -363,6 +361,7 @@ class Model:
             projection.append(entry)
             
         return projection
+    
     
     def retrieve_data_files(self, login, inst_params, ipts_number):
         
@@ -384,6 +383,7 @@ class Model:
                                          exts=exts,
                                          tags=['type/raw'])
         return data_files
+    
     
     def run_title_dictionary(self,data_files, inst_params):
         
@@ -412,6 +412,7 @@ class Model:
     
         return np.array([r for sub_list in run_list for r in sub_list])
     
+    
     def prepare_runs_for_multiple_plots(self,run_number_list):
         rs = run_number_list.copy()
         
@@ -436,11 +437,10 @@ class Model:
     
     
     def beamline_info(self,bl):
-        
         inst_params = beamlines[bl]
 
-        
         return inst_params
+    
     
     def run_numbers_indices(self,name,data_files,run_title_dict,inst_params):
         run_number_entry = inst_params['RunNumber']
@@ -453,6 +453,7 @@ class Model:
         self.prepare_runs_for_multiple_plots(run_numbers[mask])
         
         return run_numbers[mask], indices[mask]
+
     
     def run_numbers_indices_1(self,data_files,run_number_list,inst_params):
         run_number_entry = inst_params['RunNumber']
@@ -461,9 +462,11 @@ class Model:
         
         mask = np.array([i in run_number_list for i in run_numbers])
         
-        self.prepare_runs_for_multiple_plots(run_numbers[mask])
+        if sum(mask) != 0:
+            self.prepare_runs_for_multiple_plots(run_numbers[mask])
         
         return run_numbers[mask], indices[mask]
+
 
     def goniometer_values(self,data_files,indices,inst_params):
         a = []
@@ -477,7 +480,6 @@ class Model:
             #print(b.shape)
             a.append(b)
             
-
         return a, [i.lower() for i in gonio_entry]
 
 
@@ -489,6 +491,7 @@ class Model:
         a = np.array(a).T
 
         return a
+
 
     
 
