@@ -506,7 +506,7 @@ class ExperimentBrowser(QMainWindow):
     def __init__(self,parent=None):
         super().__init__(parent)
         
-        name = 'ipts-data-view'
+        name = 'ipts-experiment-browser'
         self.setWindowTitle(name)
         self.setGeometry(0,0,1024,635)
         
