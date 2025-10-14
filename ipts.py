@@ -10,7 +10,7 @@ import sys
 import traceback
 
 from qtpy.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget, QLabel, QLineEdit, QPushButton, QListWidget, QGridLayout, QVBoxLayout, QComboBox
-from qtpy.QtGui import QIntValidator
+from qtpy.QtGui import QIntValidator, QIcon
 from qtpy.QtCore import Qt
 
 import matplotlib
@@ -505,7 +505,9 @@ class ExperimentBrowser(QMainWindow):
     
     def __init__(self,parent=None):
         super().__init__(parent)
-        
+
+        icon = './icon.png'
+        self.setWindowIcon(QIcon(icon))
         name = 'ipts-experiment-browser'
         self.setWindowTitle(name)
         self.setGeometry(0,0,1024,635)
@@ -540,6 +542,6 @@ if __name__ == "__main__":
     sys.excepthook = handle_exception
     app = QApplication(sys.argv)
     if theme: qdarktheme.setup_theme('light')
-    window=ExperimentBrowser()#yaml)    
+    window=ExperimentBrowser()    
     window.show()
     sys.exit(app.exec_())  
