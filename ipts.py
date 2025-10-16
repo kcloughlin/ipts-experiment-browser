@@ -7,10 +7,11 @@ import getpass
 import numpy as np
 
 import sys
+import os
 import traceback
 
 from qtpy.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget, QLabel, QLineEdit, QPushButton, QListWidget, QGridLayout, QVBoxLayout, QComboBox
-from qtpy.QtGui import QIntValidator, QIcon
+from qtpy.QtGui import QIntValidator, QIcon, QPixmap
 from qtpy.QtCore import Qt
 
 import matplotlib
@@ -76,9 +77,7 @@ class View(QWidget):
         self.layout.addWidget(self.instrument_cbox,1,1,1,8)
         
         ipts_label = QLabel('IPTS: ')
-        self.ipts_field = QLineEdit()
-        ipts_validator = QIntValidator(0,1000000000,self)
-        self.ipts_field.setValidator(ipts_validator)
+        self.ipts_field = QComboBox(self)
         self.layout.addWidget(ipts_label,2,0)
         self.layout.addWidget(self.ipts_field,2,1,1,8)
         
@@ -107,13 +106,13 @@ class View(QWidget):
         return self.name_list.currentItem().text()
 
     def get_ipts(self):
-        return self.ipts_field.text()
+        return self.ipts_field.currentText()
     
     def get_runs(self):
         return self.runs_list.text()
         
     def connect_ipts(self,update):
-        self.ipts_field.editingFinished.connect(update)
+        self.ipts_field.activated.connect(update)
     
     def connect_switch_instrument(self,update):
         self.instrument_cbox.activated.connect(update)
@@ -151,11 +150,18 @@ class Presenter:
     def switch_instrument(self):
         instrument = self.view.get_instrument()
         self.clear()
-        self.view.ipts_field.setText('')
+        self.view.ipts_field.clear()
         
         inst_params = self.model.beamline_info(instrument)
         #print(inst_params['Name'])
         #print(inst_params['Goniometer'])
+        try:
+            available_runs = self.model.list_available(self.login,inst_params)
+            self.view.ipts_field.addItems(available_runs)
+        except AttributeError:
+            self.view.message_label.setText('Not Signed In')
+            self.view.message_label.setStyleSheet("color: red;")
+            
         
         self.inst_params = inst_params
 
@@ -341,6 +347,7 @@ class Presenter:
         self.view.message_label.setStyleSheet("color: green;")
         #self.view.user_line.setText('')
         #self.view.pass_line.setText('')
+        self.switch_instrument()
       
         
     
@@ -357,7 +364,10 @@ class Model:
         
         projection = []
         for name in goniometer.keys():
-            entry='.'.join([goniometer_engry, name.lower(), 'average_value'])
+            if inst_params['FancyName'] != 'DEMAND' or inst_params['InstrumentName'] == 'WAND':
+                entry='.'.join([goniometer_engry, name.lower(), 'average_value'])
+            else:
+                entry='.'.join([goniometer_engry, name.lower(),'average'])
             projection.append(entry)
             
         return projection
@@ -383,6 +393,20 @@ class Model:
                                          exts=exts,
                                          tags=['type/raw'])
         return data_files
+    
+    def list_available(self,login,inst_params):
+        facility = inst_params['Facility']
+        instrument = inst_params['Name']
+        projection = ['id']
+        
+        available_runs = login.Experiment.list(facility=facility,instrument=instrument,projection=projection)
+        
+        available = ['']
+        if len(available_runs) != 0:
+            for i in available_runs:
+                available.append(i['id'].split('-')[-1])
+                
+        return available
     
     
     def run_title_dictionary(self,data_files, inst_params):
@@ -474,7 +498,19 @@ class Model:
 
         for entry in gonio_entry:
             b = []
-            values = np.array([float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']) for df in data_files])
+            try:
+                values = np.array([float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']) for df in data_files])
+            except KeyError:
+                values = np.array([float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']) for df in data_files])
+            except TypeError:
+                values = []
+                for df in data_files:
+                    val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']
+                    if val is None:
+                        val = 0
+                    values.append(float(val))
+                values = np.array(values)
+                
             b.append([values[i] for i in indices])
             b = np.array(b).T
             #print(b.shape)
@@ -485,6 +521,8 @@ class Model:
 
     def scale_values(self,data_files,indices,inst_params):
         scale_entry = inst_params['Scale']
+        if inst_params['FancyName'] == 'DEMAND':
+            scale_entry += '.average'
 
         values = np.array([float(df[scale_entry]) for df in data_files])
         a = [values[i] for i in indices]
@@ -505,9 +543,9 @@ class ExperimentBrowser(QMainWindow):
     
     def __init__(self,parent=None):
         super().__init__(parent)
-
-        icon = './icon.png'
-        self.setWindowIcon(QIcon(icon))
+        
+        icon_path = './icon.png'
+        self.setWindowIcon(QIcon(icon_path))
         name = 'ipts-experiment-browser'
         self.setWindowTitle(name)
         self.setGeometry(0,0,1024,635)
@@ -542,6 +580,6 @@ if __name__ == "__main__":
     sys.excepthook = handle_exception
     app = QApplication(sys.argv)
     if theme: qdarktheme.setup_theme('light')
-    window=ExperimentBrowser()    
+    window=ExperimentBrowser()   
     window.show()
     sys.exit(app.exec_())  
