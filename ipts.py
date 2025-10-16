@@ -377,8 +377,7 @@ class Model:
         
         facility = inst_params['Facility']
         instrument = inst_params['Name']
-        run_number = inst_params['RunNumber']
-        if inst_params['FancyName'] == 'DEMAND': run_number = "indexed.run_number"
+        run_number = "indexed.run_number"
         
         projection = [run_number,
                       inst_params['Title'],
@@ -414,8 +413,7 @@ class Model:
     def run_title_dictionary(self,data_files, inst_params):
         
         title_entry = inst_params['Title']
-        run_number_entry = inst_params['RunNumber']
-        if inst_params['FancyName'] == 'DEMAND': run_number_entry = "indexed.run_number"
+        run_number_entry = "indexed.run_number"
         
         titles = np.array([df[title_entry] for df in data_files])
         run_numbers = np.array([int(df[run_number_entry]) for df in data_files])
@@ -470,8 +468,7 @@ class Model:
     
     
     def run_numbers_indices(self,name,data_files,run_title_dict,inst_params):
-        run_number_entry = inst_params['RunNumber']
-        if inst_params['FancyName'] == 'DEMAND': run_number_entry = "indexed.run_number"
+        run_number_entry = "indexed.run_number"
         this_run_numbers = self.run_numbers_list(run_title_dict[name])
         run_numbers = np.array([int(df[run_number_entry]) for df in data_files])
         indices = np.arange(len(data_files))
@@ -484,8 +481,7 @@ class Model:
 
     
     def run_numbers_indices_1(self,data_files,run_number_list,inst_params):
-        run_number_entry = inst_params['RunNumber']
-        if inst_params['FancyName'] == 'DEMAND': run_number_entry = "indexed.run_number"
+        run_number_entry = "indexed.run_number"
         run_numbers = np.array([int(df[run_number_entry]) for df in data_files])
         indices = np.arange(len(data_files))
         
