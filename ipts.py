@@ -67,7 +67,7 @@ class View(QWidget):
         self.layout.addWidget(self.pass_line,0,6,1,1)
         self.layout.addWidget(self.login_button,0,8)
         self.layout.addWidget(self.message_label,0,7)
-        self.layout.setColumnMinimumWidth(7,350)
+        self.layout.setColumnMinimumWidth(7,300)
         
         instrument_cbox_label = QLabel('Instrument: ')
         self.instrument_cbox = QComboBox(self)
@@ -79,16 +79,20 @@ class View(QWidget):
         ipts_label = QLabel('IPTS: ')
         self.ipts_field = QComboBox(self)
         self.layout.addWidget(ipts_label,2,0)
-        self.layout.addWidget(self.ipts_field,2,1,1,8)
+        self.layout.addWidget(self.ipts_field,2,1,1,7)
         
         self.name_list = QListWidget()
         self.layout.addWidget(self.name_list,3,0,3,4)
         
-        runs_label = QLabel('Run Numbers: ')
+        self.runs_label = QLabel('Run Numbers: ')
         self.runs_list = QLineEdit()
-        #self.runs_list.setReadOnly(True)
-        self.layout.addWidget(runs_label,7,0)
+        
+        self.exp_cbox = QComboBox(self)
+        self.exp_cbox.setEnabled(False)
+        
+        self.layout.addWidget(self.runs_label,7,0)
         self.layout.addWidget(self.runs_list,7,1,1,8)
+        self.layout.addWidget(self.exp_cbox,2,8)        
         
         self.plot = FigureCanvas(Figure(figsize=(8,6)))#,tight_layout=True))
         self.layout.addWidget(self.plot,3,4,2,5)
@@ -110,6 +114,9 @@ class View(QWidget):
     
     def get_runs(self):
         return self.runs_list.text()
+    
+    def get_experiment(self):
+        return self.exp_cbox.currentText()
         
     def connect_ipts(self,update):
         self.ipts_field.activated.connect(update)
@@ -127,6 +134,9 @@ class View(QWidget):
     def connect_login_button(self,update):
         self.login_button.clicked.connect(update)
         self.pass_line.returnPressed.connect(update)
+        
+    def connect_select_experiment(self,update):
+        self.exp_cbox.activated.connect(update)
 
         
         
@@ -141,6 +151,7 @@ class Presenter:
         self.view.connect_ipts(self.set_ipts)
         self.view.connect_adjust_runs(self.adjust_runs_list)
         self.view.connect_login_button(self.sign_in)
+        self.view.connect_select_experiment(self.set_exp)
         
         self.switch_instrument()
         self.login = None
@@ -152,9 +163,15 @@ class Presenter:
         self.clear()
         self.view.ipts_field.clear()
         
+        if instrument == 'DEMAND':
+            self.view.exp_cbox.setEnabled(True)
+            self.view.runs_label.setText('Scan Numbers:')
+        else:
+            self.view.exp_cbox.setEnabled(False)
+            self.view.runs_label.setText('Run Numbers: ')
+            
         inst_params = self.model.beamline_info(instrument)
-        #print(inst_params['Name'])
-        #print(inst_params['Goniometer'])
+
         try:
             available_runs = self.model.list_available(self.login,inst_params)
             self.view.ipts_field.addItems(available_runs)
@@ -171,14 +188,38 @@ class Presenter:
         self.clear()
         try:
             self.data_files = self.model.retrieve_data_files(self.login,self.inst_params,ipts)
+            self.model.set_experiments(self.view.exp_cbox, self.data_files)
             self.names = self.model.run_title_dictionary(self.data_files,self.inst_params)
-            self.view.name_list.addItems(list(self.names.keys()))
+            if self.view.get_instrument() != 'DEMAND':
+                self.view.name_list.addItems(list(self.names.keys()))
+            else:
+                self.set_exp()
+                
         except AttributeError:
             self.view.message_label.setText('Not Signed In')
             self.view.message_label.setStyleSheet("color: red;")
         except pyoncat.InvalidRefreshTokenError:
             self.view.message_label.setText('Login Expired')
             self.view.message_label.setStyleSheet("color: orange;")
+            
+    
+    def set_exp(self):
+        self.data_files = self.model.retrieve_data_files(self.login,self.inst_params,self.view.get_ipts())
+        data_files = self.data_files
+        exp = self.view.get_experiment()
+        
+        self.clear()
+        self.model.set_experiments(self.view.exp_cbox, self.data_files)
+        self.view.exp_cbox.setCurrentText(exp)
+        
+        mask = np.array([f'exp{exp}' in df['id'] for df in data_files])
+
+        dfs = np.array(data_files)[mask]
+        self.data_files = list(dfs)
+        
+        self.names = self.model.run_title_dictionary(self.data_files,self.inst_params)
+        
+        self.view.name_list.addItems(list(self.names.keys()))
 
 
     def select_name(self):
@@ -219,8 +260,8 @@ class Presenter:
         
         
     def clear(self):
-        
         self.view.name_list.clear()
+        self.view.exp_cbox.clear()
         self.view.runs_list.setText('')
         self.view.plot.figure.clf()
         self.view.plot.figure.canvas.draw()
@@ -236,7 +277,11 @@ class Presenter:
             for val, lab in zip(gonio_values,gonio_names):
                 ax1.plot(run_numbers_list,val,'.',label=lab)
             ax1.set_ylabel('Goniometer Values (degrees)')
-            ax1.set_xlabel('Run Number')
+            if self.view.get_instrument() != 'DEMAND':
+                ax1.set_xlabel('Run Number')
+            else:
+                ax1.set_xlabel('Scan Number')
+                ax1.set_title(f'exp{self.view.get_experiment()}')
             ax1.set_xlim(self.model.subplot_limits[0][0]-1,self.model.subplot_limits[0][1]+1)
             ax1.legend(fontsize='x-small',loc='upper left',bbox_to_anchor=(0,1.2))
             ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -251,8 +296,12 @@ class Presenter:
         else:
             axs = self.view.plot.figure.subplots(1,len(self.model.subplot_limits),sharey=True,width_ratios=[l[1]-l[0] + 2 for l in self.model.subplot_limits])
             
-            self.view.plot.figure.supxlabel('Run Number',fontsize='medium')
-            spacing = len(run_numbers_list) // 6
+            if self.view.get_instrument() != 'DEMAND':
+                self.view.plot.figure.supxlabel('Run Number',fontsize='medium')
+            else:
+                self.view.plot.figure.supxlabel('Scan Number',fontsize='medium')
+                self.view.plot.figure.suptitle(f'exp{self.view.get_experiment()}',fontsize='medium')
+            spacing = len(run_numbers_list) // 6 + 1
             
             d = 0.5
             kwargs = dict(marker=[(-d,-1),(d,1)],markersize=12,linestyle='none',color='k',mec='k',mew=1,clip_on=False)
@@ -377,11 +426,12 @@ class Model:
         
         facility = inst_params['Facility']
         instrument = inst_params['Name']
-        run_number = "indexed.run_number"
+        run_number = inst_params['RunNumber']
         
         projection = [run_number,
                       inst_params['Title'],
-                      inst_params['Scale']]
+                      inst_params['Scale'],
+                      'id']
         
         projection += self.goniometer_entries(inst_params)
         
@@ -410,14 +460,23 @@ class Model:
         avs.sort(reverse=True)
         for i in range(len(avs)):
             available.append(str(avs[i]))
-                
+
         return available
     
     
-    def run_title_dictionary(self,data_files, inst_params):
+    def set_experiments(self,cbox,data_files):
+        ids = np.array([df['id'].split('/')[-3].strip('expIPTS-') for df in data_files])
+        unique = np.unique(ids)
+        cbox_entries = []#['']
+        for i in unique:
+            cbox_entries.append(i)
+        cbox.addItems(cbox_entries)
+    
+    
+    def run_title_dictionary(self,data_files,inst_params):
         
         title_entry = inst_params['Title']
-        run_number_entry = "indexed.run_number"
+        run_number_entry = inst_params['RunNumber']
         
         titles = np.array([df[title_entry] for df in data_files])
         run_numbers = np.array([int(df[run_number_entry]) for df in data_files])
@@ -472,7 +531,7 @@ class Model:
     
     
     def run_numbers_indices(self,name,data_files,run_title_dict,inst_params):
-        run_number_entry = "indexed.run_number"
+        run_number_entry = inst_params['RunNumber']
         this_run_numbers = self.run_numbers_list(run_title_dict[name])
         run_numbers = np.array([int(df[run_number_entry]) for df in data_files])
         indices = np.arange(len(data_files))
@@ -485,7 +544,7 @@ class Model:
 
     
     def run_numbers_indices_1(self,data_files,run_number_list,inst_params):
-        run_number_entry = "indexed.run_number"
+        run_number_entry = inst_params['RunNumber']
         run_numbers = np.array([int(df[run_number_entry]) for df in data_files])
         indices = np.arange(len(data_files))
         
