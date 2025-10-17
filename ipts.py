@@ -71,7 +71,7 @@ class View(QWidget):
         
         instrument_cbox_label = QLabel('Instrument: ')
         self.instrument_cbox = QComboBox(self)
-        instruments = ['SNAP','CORELLI','TOPAZ','MANDI','WAND²','DEMAND']
+        instruments = ['TOPAZ','MANDI','CORELLI','SNAP','WAND²','DEMAND']
         self.instrument_cbox.addItems(instruments)
         self.layout.addWidget(instrument_cbox_label,1,0)
         self.layout.addWidget(self.instrument_cbox,1,1,1,8)
@@ -403,9 +403,13 @@ class Model:
         available_runs = login.Experiment.list(facility=facility,instrument=instrument,projection=projection)
         
         available = ['']
+        avs = []
         if len(available_runs) != 0:
             for i in available_runs:
-                available.append(i['id'].split('-')[-1])
+                avs.append(int(i['id'].split('-')[-1]))
+        avs.sort(reverse=True)
+        for i in range(len(avs)):
+            available.append(str(avs[i]))
                 
         return available
     
