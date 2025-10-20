@@ -292,6 +292,7 @@ class Presenter:
             ax2.set_ylabel(f'Scale ({self.inst_params["Scale"].split(".")[-1]})',color=color)
             ax2.plot(run_numbers_list,scale_values,'.',color=color)
             ax2.tick_params(axis='y',labelcolor=color)
+            ax2.set_ylim(-0.1*np.max(scale_values),np.max(scale_values)*1.1)
             
         else:
             axs = self.view.plot.figure.subplots(1,len(self.model.subplot_limits),sharey=True,width_ratios=[l[1]-l[0] + 2 for l in self.model.subplot_limits])
@@ -355,6 +356,7 @@ class Presenter:
                 color='r'
                 ax2.plot(run_numbers_list,scale_values,'.',color=color)
                 ax2.tick_params(axis='y',labelcolor=color)  
+                ax2.set_ylim(-0.1*np.max(scale_values),np.max(scale_values)*1.1)
                 if i != len(self.model.subplot_limits) - 1:
                     ax2.spines.right.set_visible(False)
                     ax2.spines.left.set_visible(False)
@@ -569,9 +571,12 @@ class Model:
             except TypeError:
                 values = []
                 for df in data_files:
-                    val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']
+                    try:
+                        val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']
+                    except KeyError:
+                        val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']
                     if val is None:
-                        val = 0
+                        val = np.nan
                     values.append(float(val))
                 values = np.array(values)
                 
