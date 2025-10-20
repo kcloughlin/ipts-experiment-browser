@@ -160,8 +160,8 @@ class Presenter:
         
     def switch_instrument(self):
         instrument = self.view.get_instrument()
-        self.clear()
         self.view.ipts_field.clear()
+        self.clear()
         
         if instrument == 'DEMAND':
             self.view.exp_cbox.setEnabled(True)
@@ -270,12 +270,26 @@ class Presenter:
     def plot(self,gonio_values,gonio_names,run_numbers_list,scale_values):
         self.view.plot.figure.clf()
         self.view.plot.figure.canvas.draw()
+        if self.view.get_ipts() == '': 
+            return
+        
         self.view.plot.figure.subplots_adjust(wspace=0.1,top=0.85,bottom=0.1)
+        colors = ['C0','C1','C2','C4']
        
         if len(self.model.subplot_limits) == 1:
             ax1 = self.view.plot.figure.subplots()
-            for val, lab in zip(gonio_values,gonio_names):
-                ax1.plot(run_numbers_list,val,'.',label=lab)
+            if self.view.get_instrument() != 'DEMAND':
+                for val, lab, c in zip(gonio_values,gonio_names,colors):
+                    ax1.plot(run_numbers_list,val,'.',color=c,label=lab)
+            else:
+                for val, lab, c in zip(gonio_values,gonio_names,colors):
+                    v = val[:]
+                    for ii in range(len(run_numbers_list)):
+                        if ii == 0:
+                            ax1.errorbar(run_numbers_list[ii],v[0][ii],yerr=np.array([abs(v[1][ii]-v[0][ii]),abs(v[2][ii]-v[0][ii])]),fmt='.',color=c,label=lab,elinewidth=0.5,capsize=2)
+                        else:
+                            ax1.errorbar(run_numbers_list[ii],v[0][ii],yerr=np.array([abs(v[1][ii]-v[0][ii]),abs(v[2][ii]-v[0][ii])]),fmt='.',color=c,elinewidth=0.5,capsize=2)
+                    
             ax1.set_ylabel('Goniometer Values (degrees)')
             if self.view.get_instrument() != 'DEMAND':
                 ax1.set_xlabel('Run Number')
@@ -326,16 +340,35 @@ class Presenter:
                 
                 if i == 0:
                     ax.set_ylabel('Goniometer Values (degrees)')
-                    for val, lab in zip(gonio_values,gonio_names):
-                        ax.plot(run_numbers_list,val,'.',label=lab)
+                    if self.view.get_instrument() != 'DEMAND':
+                        for val, lab, c in zip(gonio_values,gonio_names,colors):
+                            ax.plot(run_numbers_list,val,'.',color=c,label=lab)
+                    else:
+                        for val, lab, c in zip(gonio_values,gonio_names,colors):
+                            v = val[:]
+                            for ii in range(len(run_numbers_list)):
+                                if ii == 0:
+                                    ax.errorbar(run_numbers_list[ii],v[0][ii],yerr=np.array([abs(v[1][ii]-v[0][ii]),abs(v[2][ii]-v[0][ii])]),fmt='.',color=c,label=lab,elinewidth=0.5,capsize=2)
+                                else:
+                                    ax.errorbar(run_numbers_list[ii],v[0][ii],yerr=np.array([abs(v[1][ii]-v[0][ii]),abs(v[2][ii]-v[0][ii])]),fmt='.',color=c,elinewidth=0.5,capsize=2)
                     ax.legend(fontsize='x-small',loc='upper left',bbox_to_anchor=(0,1.2))
                     #ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                     ax.ticklabel_format(style='plain',axis='x',useOffset=False)
                     ax.spines.right.set_visible(False)
                     ax.plot([1,1],[0,1],transform=ax.transAxes,**kwargs)
                 else:
-                    for val, lab in zip(gonio_values,gonio_names):
-                        ax.plot(run_numbers_list,val,'.')
+                    if self.view.get_instrument() != 'DEMAND':
+                        for val, lab, c in zip(gonio_values,gonio_names,colors):
+                            ax.plot(run_numbers_list,val,'.',color=c)
+                    else:
+                        for val, lab, c in zip(gonio_values,gonio_names,colors):
+                            v = val[:]
+                            for ii in range(len(run_numbers_list)):
+                                if ii == 0:
+                                    ax.errorbar(run_numbers_list[ii],v[0][ii],yerr=np.array([abs(v[1][ii]-v[0][ii]),abs(v[2][ii]-v[0][i])]),fmt='.',color=c,label=lab,elinewidth=0.5,capsize=2)
+                                else:
+                                    ax.errorbar(run_numbers_list[ii],v[0][ii],yerr=np.array([abs(v[1][ii]-v[0][ii]),abs(v[2][ii]-v[0][ii])]),fmt='.',color=c,elinewidth=0.5,capsize=2)
+                        
                     #ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                     ax.ticklabel_format(style='plain',axis='x',useOffset=False)
                     ax.spines.left.set_visible(False)
@@ -357,7 +390,7 @@ class Presenter:
                 ax2.plot(run_numbers_list,scale_values,'.',color=color)
                 ax2.tick_params(axis='y',labelcolor=color)  
                 ax2.set_ylim(-0.1*np.max(scale_values),np.max(scale_values)*1.1)
-                if i != len(self.model.subplot_limits) - 1:
+                if i < len(self.model.subplot_limits) - 1:
                     ax2.spines.right.set_visible(False)
                     ax2.spines.left.set_visible(False)
                     ax2.tick_params(labelright=False)
@@ -413,13 +446,21 @@ class Model:
         goniometer = inst_params['Goniometer']
         goniometer_engry = inst_params['GoniometerEntry']
         
+        if inst_params['FancyName'] == 'DEMAND':
+            goniometer['2theta'] = '2theta'
+        
         projection = []
         for name in goniometer.keys():
             if inst_params['FancyName'] != 'DEMAND' or inst_params['InstrumentName'] == 'WAND':
                 entry='.'.join([goniometer_engry, name.lower(), 'average_value'])
             else:
+                min_entry='.'.join([goniometer_engry, name.lower(),'minimum'])
                 entry='.'.join([goniometer_engry, name.lower(),'average'])
+                max_entry='.'.join([goniometer_engry, name.lower(),'maximum'])
+                projection.append(min_entry)
+                projection.append(max_entry)
             projection.append(entry)
+
             
         return projection
     
@@ -567,16 +608,22 @@ class Model:
             try:
                 values = np.array([float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']) for df in data_files])
             except KeyError:
-                values = np.array([float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']) for df in data_files])
+                values = np.array([[float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']),
+                                    float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.minimum']),
+                                     float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.maximum'])] for df in data_files])
             except TypeError:
                 values = []
                 for df in data_files:
                     try:
                         val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']
                     except KeyError:
-                        val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']
+                        val = np.array([[float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']),
+                                            [float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.minimum']),
+                                             float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.maximum'])]] for df in data_files])
                     if val is None:
                         val = np.nan
+                    if type(val) is list and val[0] is None:
+                        val[0] = np.nan; val[1] = np.nan; val[2] = np.nan
                     values.append(float(val))
                 values = np.array(values)
                 
