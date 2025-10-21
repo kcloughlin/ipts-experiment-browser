@@ -238,13 +238,14 @@ class Presenter:
             for d in ddata_indices:
                 data_indices.append(d)
             
-        #self.runs = ','.join(runs)
-        rnl = run_numbers_list[:]
-        rnl.sort()
-        run_seq = np.split(rnl, np.where(np.diff(rnl) > 1)[0] + 1)
-        rs = ','.join([str(s[0])+':'+str(s[-1]) if len(s)-1 else str(s[0]) for s in run_seq])
-        
-        self.runs = rs
+        if len(names) > 0:
+            rnl = run_numbers_list[:]
+            rnl.sort()
+            run_seq = np.split(rnl, np.where(np.diff(rnl) > 1)[0] + 1)
+            rs = ','.join([str(s[0])+':'+str(s[-1]) if len(s)-1 else str(s[0]) for s in run_seq])
+            
+            self.runs = rs   
+        else: self.runs = ','.join(runs)
         
         self.view.runs_list.setText(self.runs)
 
