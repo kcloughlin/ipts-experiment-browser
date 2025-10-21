@@ -10,7 +10,7 @@ import sys
 import os
 import traceback
 
-from qtpy.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget, QLabel, QLineEdit, QPushButton, QListWidget, QGridLayout, QVBoxLayout, QComboBox
+from qtpy.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget, QLabel, QLineEdit, QPushButton, QListWidget, QGridLayout, QVBoxLayout, QComboBox, QAbstractItemView
 from qtpy.QtGui import QIntValidator, QIcon, QPixmap
 from qtpy.QtCore import Qt
 
@@ -82,6 +82,7 @@ class View(QWidget):
         self.layout.addWidget(self.ipts_field,2,1,1,7)
         
         self.name_list = QListWidget()
+        self.name_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.layout.addWidget(self.name_list,3,0,3,4)
         
         self.runs_label = QLabel('Run Numbers: ')
@@ -107,7 +108,8 @@ class View(QWidget):
         return self.instrument_cbox.currentText()
     
     def get_name(self):
-        return self.name_list.currentItem().text()
+        #return self.name_list.currentItem().text()
+        return self.name_list.selectedItems()
 
     def get_ipts(self):
         return self.ipts_field.currentText()
@@ -223,16 +225,29 @@ class Presenter:
 
 
     def select_name(self):
-        name = self.view.get_name()
-        self.runs = self.names[name]
+        names = self.view.get_name()
+        runs = []
+        run_numbers_list = []
+        data_indices = []
+        for name in names:
+            runs.append(self.names[name.text()])
+            
+            rrun_numbers_list, ddata_indices = self.model.run_numbers_indices(name.text(),self.data_files,self.names,self.inst_params)    
+            for r in rrun_numbers_list:
+                run_numbers_list.append(r)
+            for d in ddata_indices:
+                data_indices.append(d)
+            
+        self.runs = ','.join(runs)
         self.view.runs_list.setText(self.runs)
         #print(name)
         
-        run_numbers_list, data_indices = self.model.run_numbers_indices(name,self.data_files,self.names,self.inst_params)
-        gonio_values, gonio_names = self.model.goniometer_values(self.data_files,data_indices,self.inst_params)
-        scale_values = self.model.scale_values(self.data_files,data_indices,self.inst_params)
+        #run_numbers_list, data_indices = self.model.run_numbers_indices(name,self.data_files,self.names,self.inst_params)
+        # gonio_values, gonio_names = self.model.goniometer_values(self.data_files,data_indices,self.inst_params)
+        # scale_values = self.model.scale_values(self.data_files,data_indices,self.inst_params)
 
-        self.plot(gonio_values,gonio_names,run_numbers_list,scale_values)
+        # self.plot(gonio_values,gonio_names,run_numbers_list,scale_values)
+        self.adjust_runs_list()
         
         
     def adjust_runs_list(self):
@@ -552,7 +567,7 @@ class Model:
         out_list = []
         breaks = [0]
         for i in range(1,len(rs)):
-            if rs[i] - rs[i-1] > 1:
+            if rs[i] - rs[i-1] > 2:
                 breaks.append(i)
                 
         if len(breaks) == 1:
@@ -641,7 +656,10 @@ class Model:
             scale_entry += '.average'
 
         values = np.array([float(df[scale_entry]) for df in data_files])
-        a = [values[i] for i in indices]
+        if inst_params['Scale'] == 'metadata.entry.proton_charge':
+            a = [values[i]/1e12 for i in indices]
+        else:
+            a = [values[i] for i in indices]
         a = np.array(a).T
 
         return a
