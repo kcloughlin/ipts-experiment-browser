@@ -240,13 +240,7 @@ class Presenter:
             
         self.runs = ','.join(runs)
         self.view.runs_list.setText(self.runs)
-        #print(name)
-        
-        #run_numbers_list, data_indices = self.model.run_numbers_indices(name,self.data_files,self.names,self.inst_params)
-        # gonio_values, gonio_names = self.model.goniometer_values(self.data_files,data_indices,self.inst_params)
-        # scale_values = self.model.scale_values(self.data_files,data_indices,self.inst_params)
 
-        # self.plot(gonio_values,gonio_names,run_numbers_list,scale_values)
         self.adjust_runs_list()
         
         
