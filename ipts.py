@@ -635,8 +635,8 @@ class Model:
                         val = df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average_value']
                     except KeyError:
                         val = np.array([[float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.average']),
-                                            [float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.minimum']),
-                                             float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.maximum'])]] for df in data_files])
+                                            float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.minimum']),
+                                             float(df[inst_params['GoniometerEntry']+'.'+entry.lower()+'.maximum'])] for df in data_files])
                     if val is None:
                         val = np.nan
                     if type(val) is list and val[0] is None:
